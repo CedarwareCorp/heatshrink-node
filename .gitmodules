@@ -1,0 +1,3 @@
+[submodule "heatshrink"]
+	path = heatshrink
+	url = git@github.com:CedarwareCorp/heatshrink.git
