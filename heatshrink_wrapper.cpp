@@ -39,7 +39,6 @@ Napi::Value Encode(const Napi::CallbackInfo& info) {
             Napi::Error::New(env, "Sink failed bytes: " + std::to_string(bytes) + 
                 " state: " + std::to_string(hse->state) +
                 " finishing: " + (hse->flags != 0 ? "true" : "false") +
-                " buffer " + std::to_string((int) &in_buffer.Data()[i]) +
                 " error " + std::to_string(result)
             ).ThrowAsJavaScriptException();
             return env.Null();
