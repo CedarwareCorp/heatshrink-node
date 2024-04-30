@@ -35,33 +35,42 @@ Napi::Value Encode(const Napi::CallbackInfo& info) {
         size_t actual_bytes;
         HSE_sink_res result = heatshrink_encoder_sink(hse, &in_buffer.Data()[i], bytes, &actual_bytes);
 
-        i += actual_bytes;
-
-        if(i == in_buffer.Length()){
-            break;
+        if(result != HSER_SINK_OK){
+            Napi::Error::New(env, "Sink failed bytes: " + std::to_string(bytes) + 
+                " state: " + std::to_string(hse->state) +
+                " finishing: " + (hse->flags != 0 ? "true" : "false") +
+                " buffer " + std::to_string((int) &in_buffer.Data()[i]) +
+                " error " + std::to_string(result)
+            ).ThrowAsJavaScriptException();
+            return env.Null();
         }
 
+        i += actual_bytes;
+
         HSE_poll_res poll_res;
+        HSE_finish_res finish_res;
         do{
-            HSE_poll_res poll_res = heatshrink_encoder_poll(hse, output_temp, 2048, &actual_bytes);
+            poll_res = heatshrink_encoder_poll(hse, output_temp, 2048, &actual_bytes);
 
             if(actual_bytes > 0){
                 out_buffer.insert(out_buffer.end(), &output_temp[0], &output_temp[actual_bytes]);
             }
 
             if(i == in_buffer.Length()){
-                heatshrink_encoder_finish(hse);
+                finish_res = heatshrink_encoder_finish(hse);
+            }else{
+                finish_res = HSER_FINISH_DONE;
             }
-        }while(poll_res == HSER_POLL_MORE);
-    }
 
-    while(heatshrink_encoder_finish(hse) == HSER_FINISH_MORE){
-        size_t actual_bytes;
-        heatshrink_encoder_poll(hse, output_temp, 2048, &actual_bytes);
-
-        if(actual_bytes > 0){
-            out_buffer.insert(out_buffer.end(), &output_temp[0], &output_temp[actual_bytes]);
-        }
+            if(poll_res < 0){
+                Napi::Error::New(env, "Poll failed: " + std::to_string(poll_res)).ThrowAsJavaScriptException();
+                return env.Null();
+            }
+            if(finish_res < 0){
+                Napi::Error::New(env, "Finish failed: " + std::to_string(finish_res)).ThrowAsJavaScriptException();
+                return env.Null();
+            }
+        }while(poll_res == HSER_POLL_MORE || finish_res == HSER_FINISH_MORE);
     }
 
     heatshrink_encoder_free(hse);
