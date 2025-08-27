@@ -8,7 +8,7 @@ extern "C" {
 Napi::Value Encode(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
 
-    if (info.Length() < 1) {
+    if (info.Length() < 3) {
         Napi::TypeError::New(env, "Wrong number of arguments")
             .ThrowAsJavaScriptException();
         return env.Null();
@@ -19,12 +19,31 @@ Napi::Value Encode(const Napi::CallbackInfo& info) {
         return env.Null();
     }
     
+    if (!info[1].IsNumber() || !info[2].IsNumber()) {
+        Napi::TypeError::New(env, "Window and lookahead sizes must be numbers")
+            .ThrowAsJavaScriptException();
+        return env.Null();
+    }
+
     Napi::Buffer<uint8_t> in_buffer = info[0].As<Napi::Buffer<uint8_t>>();
+
+    uint32_t window = (uint8_t) info[1].As<Napi::Number>().Uint32Value();
+    uint32_t lookahead = (uint8_t) info[2].As<Napi::Number>().Uint32Value();
+
+    if(window < 4 || window > 15){
+        Napi::Error::New(env, "Window size must be between 4 and 15").ThrowAsJavaScriptException();
+        return env.Null();
+    }
+
+    if(lookahead < 3 || lookahead > window - 1){
+        Napi::Error::New(env, "Lookahead size must be between 3 and window - 1").ThrowAsJavaScriptException();
+        return env.Null();
+    }
 
     std::vector<uint8_t> out_buffer;
     uint8_t output_temp[2048];
 
-    heatshrink_encoder *hse = heatshrink_encoder_alloc(14, 13);
+    heatshrink_encoder *hse = heatshrink_encoder_alloc(window, lookahead);
 
     for(int i = 0; i < in_buffer.Length();){
         int bytes = 2048;
